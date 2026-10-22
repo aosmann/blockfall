@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Blockfall">
-<meta name="theme-color" content="#1b0b30">
+<meta name="theme-color" content="#241532">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -21,7 +21,7 @@
    One look on purpose (plum night, jewel blocks). */
 :root{
   --ink:#24123d; --ink2:#6c5a8c; --paper:#fbf8ff; --paper2:#efe7fb; --rule:#d9ccef;
-  --plum:#1b0b30; --plum2:#2c1149; --night:#120720;
+  --plum:#211430; --plum2:#2c1a3d; --night:#160c20;
   --ruby:#ff4d6d; --amber:#ffb33b; --emerald:#2fd08a; --sapphire:#4b8dff; --amethyst:#b36bff; --aqua:#2fd3d0; --rose:#ff7ac1;
   --good:#2fcf88; --good-d:#169660; --bad:#ff4d6d; --bad-d:#c21f45; --gold:#ffc94a; --gold-d:#c88f00;
   --chip:rgba(14,5,28,.58);
@@ -529,7 +529,8 @@ const norm=cells=>{const mr=Math.min(...cells.map(c=>c[0])),mc=Math.min(...cells
   return{cells:out,w:Math.max(...out.map(c=>c[1]))+1,h:Math.max(...out.map(c=>c[0]))+1,key:out.join(';')}};
 const TET={I:'####',O:'##/##',T:'###/.#.',S:'.##/##.',Z:'##./.##',J:'#../###',L:'..#/###'};
 const TCOL={I:5,O:1,T:4,S:2,Z:0,J:3,L:6};
-const JEWELS=[['#ff5a78','#d01f4c','ruby'],['#ffbe48','#dd7a12','amber'],['#3fdc94','#139a60','emerald'],['#5b98ff','#2350cf','sapphire'],['#be7dff','#7d36d8','amethyst'],['#3fdcd8','#11908e','aqua'],['#ff86c6','#d23f8e','rose']];
+/* flat block colours: face, lit top edge, shaded bottom edge */
+const JEWELS=[['#e5482e','#f27a62','#a92b16','red'],['#f5bd2b','#fbd970','#c4870c','yellow'],['#63bd3a','#8fd66c','#3d8a1f','green'],['#3a7fe0','#6fa3ee','#2156a8','blue'],['#9b4fd4','#bb82e6','#6d2fa3','purple'],['#22b5c2','#5ccfd8','#127c86','teal'],['#f0812b','#f7a565','#b8561a','orange']];
 const PIECES={};
 for(const k in TET){let cells=P(TET[k]);const rots=[];for(let i=0;i<4;i++){const s=norm(cells);if(!rots.some(r=>r.key===s.key))rots.push(s);const h=Math.max(...cells.map(c=>c[0]));cells=cells.map(([r,c])=>[c,h-r])}PIECES[k]=rots}
 let bag=[];const nextName=()=>{if(!bag.length)bag=shuffle(Object.keys(TET));return bag.pop()};
@@ -593,31 +594,29 @@ addEventListener('resize',onResize);if(window.visualViewport)visualViewport.addE
 /* ======================= BACKGROUND (drawn once per resize) =======================
    deep plum night: soft aurora glows in teal and magenta, scattered stars, a faint diamond lattice */
 function paintBg(){const c=bctx;c.setTransform(DPR,0,0,DPR,0,0);
-  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#160826');g.addColorStop(.45,'#2a0f46');g.addColorStop(1,'#12061e');c.fillStyle=g;c.fillRect(0,0,W,H);
-  [[.15,.12,'rgba(40,210,195,.20)',.7],[.9,.3,'rgba(220,70,170,.18)',.65],[.4,.85,'rgba(120,70,255,.2)',.8],[.85,.95,'rgba(40,200,190,.12)',.5]].forEach(([u,v,col,s])=>{
-    const rg=c.createRadialGradient(W*u,H*v,0,W*u,H*v,Math.max(W,H)*s);rg.addColorStop(0,col);rg.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=rg;c.fillRect(0,0,W,H)});
-  c.strokeStyle='rgba(255,255,255,.025)';c.lineWidth=1;const st=46;
-  for(let i=-H;i<W+H;i+=st){c.beginPath();c.moveTo(i,0);c.lineTo(i+H,H);c.stroke();c.beginPath();c.moveTo(i,H);c.lineTo(i+H,0);c.stroke()}
-  for(let i=0;i<110;i++){const x=Math.random()*W,y=Math.random()*H,s=Math.random()<.1?2:1;c.fillStyle=`rgba(255,240,255,${rnd(.12,.55)})`;c.fillRect(x,y,s,s)}
-  const v=c.createRadialGradient(W/2,H*.5,Math.min(W,H)*.35,W/2,H/2,Math.hypot(W,H)*.65);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(6,2,14,.55)');c.fillStyle=v;c.fillRect(0,0,W,H)}
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#241532');g.addColorStop(1,'#1a0f25');c.fillStyle=g;c.fillRect(0,0,W,H);
+  const v=c.createRadialGradient(W/2,H*.45,Math.min(W,H)*.3,W/2,H/2,Math.hypot(W,H)*.7);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(8,3,14,.45)');c.fillStyle=v;c.fillRect(0,0,W,H)}
 
 /* ======================= BLOCK SPRITES =======================
    chunky rounded jewel block with a soft bevel: light top-left rim, darker bottom-right, a glossy highlight. Cached per colour and size. */
 const sprites=new Map();
 function rrect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
-function sprite(ci,size,kind){const px=Math.max(4,Math.round(size*DPR)),key=ci+'|'+px+'|'+(kind||'');let s=sprites.get(key);if(s)return s;
-  s=document.createElement('canvas');s.width=s.height=px;const x=s.getContext('2d');const [hi,lo]=ci<0?['#ffffff','#ffffff']:JEWELS[ci];
-  const pad=px*.045,w=px-pad*2,r=px*.24;
-  rrect(x,pad,pad+px*.03,w,w,r);x.fillStyle='rgba(0,0,0,.35)';x.fill();
-  rrect(x,pad,pad,w,w,r);const g=x.createLinearGradient(0,pad,0,pad+w);g.addColorStop(0,hi);g.addColorStop(1,lo);x.fillStyle=g;x.fill();
-  /* bevel: inner panel slightly inset */
-  x.save();rrect(x,pad,pad,w,w,r);x.clip();
-  const b=x.createLinearGradient(pad,pad,pad+w,pad+w);b.addColorStop(0,'rgba(255,255,255,.45)');b.addColorStop(.45,'rgba(255,255,255,0)');b.addColorStop(.6,'rgba(0,0,0,0)');b.addColorStop(1,'rgba(0,0,0,.28)');
-  x.fillStyle=b;x.fillRect(0,0,px,px);
-  const ip=px*.17;rrect(x,pad+ip,pad+ip,w-ip*2,w-ip*2,r*.6);const ig=x.createLinearGradient(0,pad+ip,0,pad+w-ip);ig.addColorStop(0,hi);ig.addColorStop(1,lo);x.fillStyle=ig;x.globalAlpha=.55;x.fill();x.globalAlpha=1;
-  x.beginPath();x.ellipse(pad+w*.38,pad+w*.27,w*.24,w*.1,-.45,0,7);x.fillStyle='rgba(255,255,255,.55)';x.fill();
+/* flat square block with a thin bevel: lit top edge, shaded bottom, slightly shaded sides, crisp dark seam. Cached per colour and size. */
+function shade(hex,k){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(r)},${f(g)},${f(b)})`}
+function sprite(ci,size){const px=Math.max(4,Math.round(size*DPR)),key=ci+'|'+px;let s=sprites.get(key);if(s)return s;
+  s=document.createElement('canvas');s.width=s.height=px;const x=s.getContext('2d');
+  const [face,lit,dark]=ci<0?['#ffffff','#ffffff','#e9e2f5']:JEWELS[ci];
+  const g=Math.max(1,px*.035),w=px-g*2,r=px*.1,b=Math.max(2,px*.13);
+  x.save();rrect(x,g,g,w,w,r);x.clip();
+  x.fillStyle=face;x.fillRect(0,0,px,px);
+  const L=g,T=g,R=g+w,B=g+w;
+  const poly=(pts,col)=>{x.beginPath();pts.forEach(([a,c],i)=>i?x.lineTo(a,c):x.moveTo(a,c));x.closePath();x.fillStyle=col;x.fill()};
+  poly([[L,T],[R,T],[R-b,T+b],[L+b,T+b]],lit);
+  poly([[L,B],[R,B],[R-b,B-b],[L+b,B-b]],dark);
+  poly([[L,T],[L+b,T+b],[L+b,B-b],[L,B]],ci<0?lit:shade(face,.12));
+  poly([[R,T],[R-b,T+b],[R-b,B-b],[R,B]],ci<0?dark:shade(face,-.16));
   x.restore();
-  rrect(x,pad+.5,pad+.5,w-1,w-1,r);x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=Math.max(1,px*.02);x.stroke();
+  rrect(x,g+.5,g+.5,w-1,w-1,r);x.strokeStyle='rgba(20,6,30,.35)';x.lineWidth=Math.max(1,px*.02);x.stroke();
   sprites.set(key,s);return s}
 function block(c,ci,x,y,size,alpha){const s=sprite(ci,size);if(alpha!=null)c.globalAlpha=alpha;c.drawImage(s,x,y,size,size);if(alpha!=null)c.globalAlpha=1}
 /* ======================= GAME STATE ======================= */
@@ -779,19 +778,19 @@ for(let i=0;i<14;i++)addFaller(Math.random()*1.1);
 /* ======================= RENDER ======================= */
 function drawPiece(c,p,x,y,cell,alpha,ci){for(const [r,cc] of p.cells)block(c,ci,x+cc*cell,y+r*cell,cell,alpha)}
 function outline(c,sh,col,row,color){c.save();c.strokeStyle=color;c.lineWidth=Math.max(1.5,CS*.06);c.setLineDash([CS*.18,CS*.14]);
-  for(const [y,x] of sh.cells){const r=row+y;if(r<0)continue;rrect(c,GX+(col+x)*CS+CS*.12,GY+r*CS+CS*.12,CS*.76,CS*.76,CS*.18);c.stroke()}c.restore()}
+  for(const [y,x] of sh.cells){const r=row+y;if(r<0)continue;rrect(c,GX+(col+x)*CS+CS*.1,GY+r*CS+CS*.1,CS*.8,CS*.8,CS*.08);c.stroke()}c.restore()}
 function drawBoard(c){
   const st=stackTop(),danger=state==='run'&&st<5?(5-st)/5:0;
-  c.save();rrect(c,GX-FR,GY-FR,BW+FR*2,BH+FR*2,Math.max(12,CS*.4));c.fillStyle='rgba(10,3,22,.66)';c.fill();
-  c.strokeStyle=danger?`rgba(255,90,120,${.25+.35*danger*(.6+.4*Math.sin(gt*7))})`:'rgba(220,190,255,.14)';c.lineWidth=2;c.stroke();c.restore();
+  c.save();rrect(c,GX-FR,GY-FR,BW+FR*2,BH+FR*2,Math.max(10,CS*.3));c.fillStyle='#130a1c';c.fill();
+  c.strokeStyle=danger?`rgba(255,90,120,${.25+.35*danger*(.6+.4*Math.sin(gt*7))})`:'rgba(255,255,255,.06)';c.lineWidth=2;c.stroke();c.restore();
   if(danger){const g=c.createLinearGradient(0,GY,0,GY+CS*4);g.addColorStop(0,`rgba(255,60,100,${.22*danger})`);g.addColorStop(1,'rgba(255,60,100,0)');c.fillStyle=g;c.fillRect(GX,GY,BW,CS*4)}
   /* cell slots */
-  for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){rrect(c,GX+cc*CS+CS*.07,GY+r*CS+CS*.07,CS*.86,CS*.86,CS*.2);c.fillStyle=(r+cc)%2?'rgba(255,255,255,.035)':'rgba(255,255,255,.055)';c.fill()}
+  for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){rrect(c,GX+cc*CS+CS*.05,GY+r*CS+CS*.05,CS*.9,CS*.9,CS*.1);c.fillStyle='#1e1229';c.fill()}
   /* settled blocks (rows above a clear slide down) */
   const dd=dropDelay>0?1:0;
   for(let r=0;r<ROWS;r++){const off=rowDrop[r]*CS;for(let cc=0;cc<COLS;cc++){const v=grid[r][cc];if(v<0)continue;
     let s=CS,dx=0;const sv=settle[r][cc];if(sv>0){s=CS*(1+sv*.1);dx=(CS-s)/2}
-    block(c,v,GX+cc*CS+dx,GY+r*CS-off+dx,s);if(sv>.5&&lastKind==='right'){c.globalAlpha=(sv-.5)*.9;block(c,-1,GX+cc*CS,GY+r*CS,CS);c.globalAlpha=1}}}
+    block(c,v,GX+cc*CS+dx,GY+r*CS-off+dx,s);if(sv>.6&&lastKind==='right'){c.globalAlpha=(sv-.6)*.8;block(c,-1,GX+cc*CS,GY+r*CS,CS);c.globalAlpha=1}}}
   /* clearing blocks: flash white, then pop */
   for(const k of ghosts){const x=GX+k.c*CS,y=GY+k.r*CS;if(k.t<0){block(c,k.ci,x,y,CS);continue}
     if(k.t<.1){block(c,k.ci,x,y,CS);c.globalAlpha=k.t/.1;block(c,-1,x,y,CS);c.globalAlpha=1}
@@ -803,11 +802,11 @@ function drawBoard(c){
   if(pc&&state!=='menu'){const sh=pcShape();
     if(pc.mode==='fall'){outline(c,sh,pc.col,pc.land,'rgba(220,200,255,.28)')}
     if(pc.mode==='move'){outline(c,sh,pc.to.col,pc.to.row,pc.kind==='right'?'rgba(120,255,190,.7)':'rgba(255,120,150,.7)')}
-    for(const t of trail){c.save();c.globalAlpha=t.a*.35;drawPiece(c,t.sh,GX+t.x*CS,GY+t.y*CS,CS,null,t.ci);c.restore()}
+    for(const t of trail){c.save();c.globalAlpha=t.a*.18;drawPiece(c,t.sh,GX+t.x*CS,GY+t.y*CS,CS,null,t.ci);c.restore()}
     c.save();rrect(c,GX-FR+1,GY-FR+1,BW+FR*2-2,BH+FR*2-2,Math.max(12,CS*.4));c.clip();
     const sp=pc.pop>0?1+pc.pop*.12:1,cell=CS*sp,ox=(CS-cell)*sh.w/2,oy=(CS-cell)*sh.h/2;
-    if(pc.mode==='fall'){c.save();c.shadowColor='rgba(190,130,255,.55)';c.shadowBlur=CS*.5;drawPiece(c,sh,GX+pc.x*CS+ox,GY+pc.y*CS+oy,cell,null,pc.color);c.restore()}
-    else drawPiece(c,sh,GX+pc.x*CS+ox,GY+pc.y*CS+oy,cell,null,pc.color);
+    c.save();c.fillStyle='rgba(0,0,0,.38)';for(const [r,cc] of sh.cells){rrect(c,GX+pc.x*CS+ox+cc*cell+CS*.22,GY+pc.y*CS+oy+r*cell+CS*.26,cell*.96,cell*.96,cell*.1);c.fill()}c.restore();
+    drawPiece(c,sh,GX+pc.x*CS+ox,GY+pc.y*CS+oy,cell,null,pc.color);
     if(pc.mode==='move'&&pc.kind==='wrong'){c.globalAlpha=.25;drawPiece(c,sh,GX+pc.x*CS+ox,GY+pc.y*CS+oy,cell,null,0);c.globalAlpha=1}
     c.restore()}
   /* soft cover over the spawn zone above the board so pieces slide in */
