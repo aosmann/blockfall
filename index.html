@@ -649,9 +649,10 @@ function flash(color,a){const f=$('flash');f.style.background=color;f.style.tran
   requestAnimationFrame(()=>requestAnimationFrame(()=>{f.style.transition='opacity .5s';f.style.opacity=0}))}
 const say=t=>{$('srLive').textContent=t};
 const mult=()=>streak>=5?3:streak>=3?2:1;
-/* seconds for a piece to fall the whole board; a little faster every 10 lines */
+/* seconds for a piece to fall the whole board. Every 5 questions the blocks fall 12% faster (a quiet milestone, never
+   announced), down to 30% of the starting time, so a long run keeps getting harder */
 const BASEFALL={1:15,2:11,3:8};
-const fallTime=()=>(BASEFALL[DIFF()]||11)*Math.max(.6,Math.pow(.93,Math.floor(lines/10)));
+const fallTime=()=>(BASEFALL[DIFF()]||11)*Math.max(.3,Math.pow(.88,Math.floor(asked/5)));
 const fallSpeed=()=>(ROWS+2)/fallTime();
 function paintHud(){const sn=$('scoreN');if(+sn.textContent!==score){sn.textContent=score;sn.classList.remove('bump');void sn.offsetWidth;sn.classList.add('bump')}
   $('scoreL').textContent=score===1?'point':'points';

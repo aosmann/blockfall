@@ -9,7 +9,7 @@ Educational falling-blocks game for the EduGames portal. The questions drive the
 - Streaks: 3 right in a row = ×2 line points, 5 = ×3. Every 5th right answer in a row also sweeps away the bottom row
 - Chess clock (as in Slicefall): start with 10 s. The clock only runs while a block is falling with its question open. Right answers add time, wrong or unanswered ones take it away: Quick +1 s / −1 s, Normal +2 / −2, Relaxed +3 / −2. The clock holds at most 15 s, and the bonus shrinks by 0.5 s every 8 right answers (never below 0.5 s)
 - The run ends when the clock hits zero, when the stack reaches the top, or when you end it from pause
-- Easy / Medium / Hard: blocks fall the whole board in about 15 / 11 / 8 seconds, a little faster every 10 lines
+- Easy / Medium / Hard: blocks start by falling the whole board in about 15 / 11 / 8 seconds. Every 5 questions they fall 12% faster (not announced in the game), down to 30% of the starting time
 - Record kept per topic, difficulty and clock
 
 ## Controls
