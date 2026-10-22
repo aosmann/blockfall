@@ -404,7 +404,8 @@ const EMBED=(()=>{const p=new URLSearchParams(location.search);if(!p.get('topic'
   return{topic:p.get('topic'),level:+p.get('level')||0,clock:p.get('clock'),lock:p.get('lock')==='1'}})();
 /* continents from the portal (class mode); no regions param = all continents */
 const EMBED_REG=EMBED?(EduQ.parseRegions?EduQ.parseRegions(new URLSearchParams(location.search).get('regions'))||EduQ.REGIONS.map(r=>r.id):null):null;
-const toParent=m=>{try{if(window.parent!==window)window.parent.postMessage(m,'*')}catch(e){}};
+let lastAns=null;/* the last answer rides on the next edu-progress, for the portal's mistakes report */
+const toParent=m=>{try{if(m&&m.type==='edu-progress'&&lastAns){m.last=lastAns;lastAns=null}if(window.parent!==window)window.parent.postMessage(m,'*')}catch(e){}};
 
 /* ======================= SETTINGS ======================= */
 const cfg={subject:'math',topic:'times',diffs:{},clock:'normal'};
@@ -427,12 +428,13 @@ function logResult(r){
 /* ======================= MENUS ======================= */
 function renderSubjects(){const box=$('subjects');box.innerHTML='';
   SUBJECTS.forEach(s=>{const b=el('button','tile push');b.type='button';b.style.setProperty('--h',SHUE[s.id]||'#9150e8');
-    const tx=el('span','tx');tx.append(el('strong',null,s.name),el('span',null,`${s.topics.length} topics`));
+    const tx=el('span','tx');tx.append(el('strong',null,s.name),el('span',null,`${s.topics.filter(x=>!x.unit).length} topics`));
     const ic=el('span','sicon');ic.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${SICON[s.id]||''}</svg>`;
     b.append(ic,tx);b.onclick=()=>{if(cfg.subject!==s.id){cfg.subject=s.id;cfg.topic=s.topics[0].id}saveCfg();go('stepTopic')};box.append(b)})}
 function renderTopics(){const s=curSubject(),t=curTopic();cfg.topic=t.id;$('subName').textContent=s.name;
   const box=$('topics');box.innerHTML='';box.style.setProperty('--h',SHUE[s.id]||'#9150e8');
-  s.topics.forEach(tp=>{const b=el('button','row');b.type='button';b.setAttribute('aria-pressed',tp.id===cfg.topic);
+  {const o=document.getElementById('topTabs');if(o)o.remove();const tb=EduQ.topicTabs&&EduQ.topicTabs(s,t,id=>{cfg.topic=id;saveCfg();renderTopics()});if(tb){tb.id='topTabs';box.before(tb)}}
+  (EduQ.topicsOf?EduQ.topicsOf(s,t):s.topics).forEach(tp=>{const b=el('button','row');b.type='button';b.setAttribute('aria-pressed',tp.id===cfg.topic);
     const tx=el('span','tx');tx.append(el('strong',null,tp.name),el('span',null,tp.regions&&EduQ.regionLabel?EduQ.regionLabel(EduQ.getRegions(tp.id)):tp.bl));
     const side=el('span');const bs=getBest(tp.id,topicDiff(tp));if(bs)side.append(el('span','best',`${bs} pts`));
     b.append(el('span','radio'),tx,side);b.onclick=()=>{cfg.topic=tp.id;saveCfg();renderTopics()};box.append(b)});
@@ -688,7 +690,7 @@ function lock(kind){if(!pc)return;const sh=pcShape(),row=kind==='slow'?pc.land:p
   phase='between';nextAt=gt+(n||sw?.62:.32)}
 function tooSlow(){if(!cur)return;asked++;slowN++;const was=streak;streak=0;
   cur.card.classList.add('slow');cur.res.textContent=`Too slow · ✓ ${cur.answer}`;cur.btns.forEach(b=>b.disabled=true);cur.btns[cur.correct].classList.add('ok');$('answers').classList.add('locked');fitCard();
-  missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:'(no answer)'});addTime(false);
+  missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:'(no answer)'});lastAns=Object.assign({},missed[missed.length-1],{ok:0,tag:cur.tag||null});addTime(false);
   if(was>=3)pop(GX+BW/2,GY+BH*.4,'Streak lost','#ffb0c0',true);S.slow();paintHud();toParent({type:'edu-progress',game:GAME,score,right,asked});
   say(`Too slow. The answer is ${cur.answer}.`)}
 
@@ -738,13 +740,13 @@ function fitCard(){const card=cur&&cur.card;if(!card)return;card.classList.remov
 const CHEER={3:['Sharp!','3 in a row · ×2 line points','#d98a00'],5:['Brilliant!','5 in a row · ×3 · bottom row swept','#c23a80'],10:['Unstoppable','10 in a row · another sweep','#c23a80'],15:['Genius','15 in a row','#7a37d6'],20:['Legend','20 in a row','#7a37d6']};
 function answer(i){if(state!=='run'||phase!=='ask'||!cur||!pc||pc.mode!=='fall'||ending)return;asked++;
   const ok=i===cur.correct;$('answers').classList.add('locked');cur.btns.forEach(b=>b.disabled=true);cur.btns[cur.correct].classList.add('ok');
-  if(ok){right++;streak++;bestStreak=Math.max(bestStreak,streak);const quick=gt-pc.born<fallTime()*.38;score+=1+(quick?1:0);if(quick)quickN++;
+  if(ok){right++;lastAns={q:cur.img?'This flag':cur.q,img:cur.img||null,answer:cur.answer,picked:cur.answer,ok:1,tag:cur.tag||null};streak++;bestStreak=Math.max(bestStreak,streak);const quick=gt-pc.born<fallTime()*.38;score+=1+(quick?1:0);if(quick)quickN++;
     cur.card.classList.add('right');S.right();if(streak%5===0)sweepPending=true;
     const ch=CHEER[streak];if(ch){banner(ch[0],ch[1],ch[2]);S.sting(streak>=5?2:1)}
     const p=pc;pop(GX+(p.x+pcShape().w/2)*CS,GY+Math.max(1.2,p.y)*CS,quick?'+2 Quick!':'+1',quick?'#9ff3e8':'#fff',quick);
     addTime(true);startMove(bestPlacement(pc.name),'right');record()}
   else{const was=streak;streak=0;cur.btns[i].classList.add('no');cur.card.classList.add('wrong');cur.res.textContent=`✓ ${cur.answer}`;fitCard();S.wrong();
-    missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:cur.ans[i]});
+    missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:cur.ans[i]});lastAns=Object.assign({},missed[missed.length-1],{ok:0,tag:cur.tag||null});
     if(was>=3)pop(GX+BW/2,GY+BH*.4,'Streak lost','#ffb0c0',true);
     addTime(false);startMove(badPlacement(pc.name),'wrong')}
   paintHud();toParent({type:'edu-progress',game:GAME,score,right,asked});
