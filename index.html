@@ -630,7 +630,7 @@ function drawBomb(c,x,y,size,a){const cx=x+size/2,cy=y+size*.56,r=size*.34;c.sav
 // states: menu · count · run · paused · over;  phases in a run: ask · choose · place · stuck
 let state='menu',phase='ask',timeLeft=0,played=0,countT=0,next=null,cur=null,lastSec=0,pausedFrom='run',gt=0;
 let score=0,right=0,asked=0,streak=0,bestStreak=0,lines=0,missed=[],best=0,beat=false,chain=0,bestChain=0,bombs=0,bombsUsed=0,pieces=0,ending=false,endAt=0,askAt=0;
-let tray=[],choices=null,trayMode='',trayIn=0,shakeT=0,shakeA=0,stuckSet=null;
+let tray=[],choices=null,trayMode='',trayIn=0,shakeT=0,shakeA=0,stuckSet=null,bombHint=null;
 let parts=[],pops=[],clears=[],sweeps=[],blast=null;const servedLog=[];
 const show=(id,on)=>$(id).classList.toggle('off',!on);
 function panel(which){['menu','pauseP','over'].forEach(p=>$(p).hidden=p!==which);show('sheet',!!which);const sh=$('sheet');
@@ -722,7 +722,9 @@ function useBomb(r,c){if(bombs<=0||r<0||c<0||r>=N||c>=N)return false;bombs--;bom
   if(pts)pop(bx,by-CS*.8,`+${pts}`,'#ffd56a',true);paintHud();if(phase==='place'||phase==='stuck'){stuckSet=null;if(phase==='stuck'){phase='place';ending=false}checkStuck()}
   say(`Bomb! ${k} blocks blasted.`);return true}
 function checkStuck(){if(phase!=='place')return;const left=tray.filter(p=>!p.placed);if(!left.length)return;
-  if(left.some(p=>fitsAny(p))||bombs>0){stuckSet=null;return}
+  if(left.some(p=>fitsAny(p))){stuckSet=null;return}
+  /* nothing fits but a bomb is in hand: say so, once per tray, so the board never looks frozen */
+  if(bombs>0){stuckSet=null;if(bombHint!==tray){bombHint=tray;setTimeout(()=>{if(state==='run'&&phase==='place')banner('Use your bomb','Nothing fits · drag the bomb onto the board to clear 3×3','#c23a80',3200)},250);say('No piece fits. Drag your bomb onto the board to clear space.')}return}
   phase='stuck';stuckSet=new Set(left);ending=true;endAt=gt+2.4;S.stuck();shakeT=.35;shakeA=7;
   setTimeout(()=>{if(state==='run')banner('No room left',"These pieces don't fit anywhere",'#c21f45',2000)},250);say('No room left for these pieces. The run is over.')}
 
