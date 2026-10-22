@@ -78,7 +78,9 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 #clock small{font:900 9px/1 var(--body);letter-spacing:.12em;color:#a491c8}
 #clockN{font:600 24px/1.05 var(--display);color:#9ff3e8;font-variant-numeric:tabular-nums;text-shadow:0 0 10px rgba(60,230,210,.45)}
 #clock.low #clockN{color:#ff6f8a;text-shadow:0 0 10px rgba(255,60,90,.6);animation:beat 1s ease-in-out infinite}
-#clock.free #clockN{color:#dccdf6;text-shadow:none}
+#clockD{position:absolute;left:50%;top:58px;transform:translateX(-50%);font:700 16px/1 var(--display);white-space:nowrap;opacity:0;text-shadow:0 2px 0 rgba(0,0,0,.55)}
+#clockD.good{color:#8ff0b8;opacity:1;animation:drop .9s ease-out} #clockD.bad{color:#ff8a9e;opacity:1;animation:drop .9s ease-out}
+@keyframes drop{0%{transform:translate(-50%,-8px) scale(1.3)}25%{transform:translate(-50%,0) scale(1)}}
 @keyframes beat{15%{transform:scale(1.15)}}
 .hint{margin:0;text-align:center;font:800 13px/1.35 var(--body);color:#dccdf6}
 
@@ -256,7 +258,7 @@ h1,h2{margin:0;font-weight:700;font-family:var(--display);text-wrap:balance}
     <div id="meter" aria-label="Streak towards a sweep"><i></i><i></i><i></i><i></i><i></i><b>sweep</b></div>
   </div>
   <div style="display:grid;gap:6px;justify-items:end">
-    <div id="clock" role="timer" aria-label="Time" style="width:76px"><small id="clockL">TIME</small><b id="clockN">2:00</b></div>
+    <div id="clock" role="timer" aria-label="Time left" style="width:76px"><small>TIME</small><b id="clockN">10</b><span id="clockD" aria-live="polite"></span></div>
   </div>
 </div>
 <div id="qbox" class="ui off" aria-live="polite"></div>
@@ -268,7 +270,7 @@ h1,h2{margin:0;font-weight:700;font-family:var(--display);text-wrap:balance}
     <div class="rule"><b class="g">+1</b>Right: the block drops into the best spot</div>
     <div class="rule"><b class="r">?</b>Wrong: it lands somewhere random</div>
     <div class="rule"><b class="v s">SLOW</b>No answer: it lands where it falls</div>
-    <div class="rule"><b class="y">×3</b>Streaks multiply line points. 5 in a row sweeps</div>
+    <div class="rule"><b class="y">+2 S</b>Right answers add time, wrong ones take it</div>
   </div>
 </div>
 <div id="flash"></div>
@@ -296,6 +298,7 @@ h1,h2{margin:0;font-weight:700;font-family:var(--display);text-wrap:balance}
           <div class="rule"><b class="v s">SLOW</b>No answer in time: it lands wherever it falls</div>
           <div class="rule"><b class="a">10</b>Full rows clear. 3 right in a row doubles line points, 5 triples</div>
           <div class="rule"><b class="y s">SWEEP</b>Every 5 in a row also clears the bottom row</div>
+          <div class="rule"><b class="r s">CLOCK</b>A chess clock: right answers add seconds, wrong or slow ones take them</div>
         </div>
         <button type="button" class="cta big push" id="playBtn">Play</button>
       </div>
@@ -315,7 +318,7 @@ h1,h2{margin:0;font-weight:700;font-family:var(--display);text-wrap:balance}
         <button type="button" class="back push" data-go="stepSubj"><span aria-hidden="true">‹</span>Subjects</button>
         <p class="step">Step 2 of 2</p>
       </header>
-      <div class="head"><h1 id="subName"></h1><p class="lead">Your record for each topic is kept per level and time.</p></div>
+      <div class="head"><h1 id="subName"></h1><p class="lead">Your record for each topic is kept per level and clock.</p></div>
       <div class="list" id="topics"></div>
       <div class="footer">
         <div class="seg" id="diffSeg" role="group" aria-label="Difficulty">
@@ -323,12 +326,12 @@ h1,h2{margin:0;font-weight:700;font-family:var(--display);text-wrap:balance}
           <button type="button" class="d2" data-d="2"><i></i>Medium</button>
           <button type="button" class="d3" data-d="3"><i></i>Hard</button>
         </div>
-        <div class="seg" id="timeSeg" role="group" aria-label="Time">
-          <button type="button" data-t="0">No limit</button>
-          <button type="button" data-t="120">2 min</button>
-          <button type="button" data-t="300">5 min</button>
+        <div class="seg" id="clockSeg" role="group" aria-label="Clock">
+          <button type="button" data-c="quick">Quick</button>
+          <button type="button" data-c="normal">Normal</button>
+          <button type="button" data-c="relaxed">Relaxed</button>
         </div>
-        <p class="hint" id="diffHint"></p>
+        <p class="hint"><span id="diffHint"></span> <span id="clockHint"></span></p>
         <button type="button" class="cta push" id="startBtn">Start</button>
       </div>
     </section>
@@ -382,8 +385,13 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const GAME='blockfall';
 const N=8;
-const TIMES=[0,120,300];
-const fmtClock=s=>{s=Math.max(0,s);const c=Math.ceil(s);return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`};
+/* Chess clock (as in Slicefall): start with 10 s; the clock only runs while a block is falling with its question open.
+   A right answer adds time, a wrong one or a block that lands unanswered takes it away. The clock can't hold more than
+   start + 5 s, and the bonus shrinks by 0.5 s for every 8 right answers (never below 0.5 s), so even strong players' runs end. */
+const CLOCKS={quick:{name:'Quick',start:10,plus:1,minus:1},normal:{name:'Normal',start:10,plus:2,minus:2},relaxed:{name:'Relaxed',start:10,plus:3,minus:2}};
+const fmtClock=s=>s<=0?'0':s<5?s.toFixed(1):String(Math.ceil(s));
+const fmtS=v=>`${Math.round(v*10)/10} s`;
+const clockHint=c=>`Start with ${c.start} s. Right +${c.plus} s, wrong or too slow −${c.minus} s.`;
 const fmtUp=s=>{const c=Math.floor(Math.max(0,s));return `${Math.floor(c/60)}:${String(c%60).padStart(2,'0')}`};
 /* plum-night jewel palette for the subject tiles, readable with white text */
 const SHUE={english:'#e0446a',math:'#e08a1a',geo:'#159e8f',science:'#3f74e0',info:'#9150e8',mix:'#c93f98'};
@@ -393,23 +401,23 @@ const DIFFHINT={1:'Easy: blocks fall slowly.',2:'Medium: blocks fall faster.',3:
    Opened by the portal as ?topic=<id>&level=1-3&time=0|120|300&regions=eu,as&lock=1 → settings come from the portal and the run starts at once.
    lock=1 (class mode): no replay, no topic menu. Posts edu-ready on load, edu-progress after every answer, edu-result at the end. */
 const EMBED=(()=>{const p=new URLSearchParams(location.search);if(!p.get('topic'))return null;
-  return{topic:p.get('topic'),level:+p.get('level')||0,time:p.get('time')==null?null:+p.get('time'),lock:p.get('lock')==='1'}})();
+  return{topic:p.get('topic'),level:+p.get('level')||0,clock:p.get('clock'),lock:p.get('lock')==='1'}})();
 /* continents from the portal (class mode); no regions param = all continents */
 const EMBED_REG=EMBED?(EduQ.parseRegions?EduQ.parseRegions(new URLSearchParams(location.search).get('regions'))||EduQ.REGIONS.map(r=>r.id):null):null;
 const toParent=m=>{try{if(window.parent!==window)window.parent.postMessage(m,'*')}catch(e){}};
 
 /* ======================= SETTINGS ======================= */
-const cfg={subject:'math',topic:'times',diffs:{},time:0};
+const cfg={subject:'math',topic:'times',diffs:{},clock:'normal'};
 try{const s=JSON.parse(localStorage.getItem('blockfall-cfg')||'{}');Object.assign(cfg,s);if(!cfg.diffs)cfg.diffs={}}catch(e){}
-cfg.time=+cfg.time;if(!TIMES.includes(cfg.time))cfg.time=0;
+if(!CLOCKS[cfg.clock])cfg.clock='normal';delete cfg.time;
+const CLK=()=>CLOCKS[cfg.clock]||CLOCKS.normal;
 /* settings that came from the portal are never written over the player's own */
 const saveCfg=()=>{if(EMBED)return;try{localStorage.setItem('blockfall-cfg',JSON.stringify(cfg))}catch(e){}};
 const curSubject=()=>SUBJECTS.find(s=>s.id===cfg.subject)||SUBJECTS[0];
 const curTopic=()=>{const s=curSubject();return s.topics.find(t=>t.id===cfg.topic)||s.topics[0]};
 const topicDiff=tp=>cfg.diffs[tp.id]||tp.d;
 const DIFF=()=>topicDiff(curTopic());
-const timeName=t=>t?`${t/60} min`:'no limit';
-const bestKey=(id,d,t)=>`blockfall-best-${id||curTopic().id}-d${d||DIFF()}-t${t==null?cfg.time:t}`;
+const bestKey=(id,d,k)=>`blockfall-best-${id||curTopic().id}-d${d||DIFF()}-${k||cfg.clock}`;
 const getBest=(id,d,t)=>{try{return +localStorage.getItem(bestKey(id,d,t))||0}catch(e){return 0}};
 function logResult(r){
   try{const k='edu-results',a=JSON.parse(localStorage.getItem(k)||'[]');a.push(r);localStorage.setItem(k,JSON.stringify(a.slice(-200)))}catch(e){}
@@ -431,9 +439,9 @@ function renderTopics(){const s=curSubject(),t=curTopic();cfg.topic=t.id;$('subN
   {const old=document.getElementById('regPick');if(old)old.remove();const pk=EduQ.regionPicker&&EduQ.regionPicker(t,{onChange:renderTopics});if(pk){pk.id='regPick';box.after(pk)}}
   $('startBtn').textContent=`Start · ${t.name}`;
   document.querySelectorAll('#diffSeg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.d===DIFF()));
-  document.querySelectorAll('#timeSeg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.t===cfg.time));$('diffHint').textContent=DIFFHINT[DIFF()]}
+  document.querySelectorAll('#clockSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===cfg.clock));$('diffHint').textContent=DIFFHINT[DIFF()];$('clockHint').textContent=clockHint(CLK())}
 document.querySelectorAll('#diffSeg button').forEach(b=>b.onclick=()=>{cfg.diffs[curTopic().id]=+b.dataset.d;saveCfg();renderTopics()});
-document.querySelectorAll('#timeSeg button').forEach(b=>b.onclick=()=>{cfg.time=+b.dataset.t;saveCfg();renderTopics()});
+document.querySelectorAll('#clockSeg button').forEach(b=>b.onclick=()=>{cfg.clock=b.dataset.c;saveCfg();renderTopics()});
 const SCREENS=['scrHome','stepSubj','stepTopic'];
 function go(id){SCREENS.forEach(x=>$(x).hidden=x!==id);$('sheet').classList.toggle('peek',id==='scrHome');
   ({scrHome:()=>{},stepSubj:renderSubjects,stepTopic:renderTopics})[id]();$('sheet').scrollTop=0}
@@ -649,10 +657,12 @@ function paintHud(){const sn=$('scoreN');if(+sn.textContent!==score){sn.textCont
   $('scoreL').textContent=score===1?'point':'points';
   const m=$('mult'),mv=mult();if(mv>1){const was=m.hidden||m.textContent!==`×${mv}`;m.hidden=false;m.textContent=`×${mv}`;m.classList.toggle('x3',mv===3);if(was){m.classList.remove('pop');void m.offsetWidth;m.classList.add('pop')}}else m.hidden=true;
   const k=streak>0&&streak%5===0?5:streak%5;[...$('meter').querySelectorAll('i')].forEach((d,i)=>d.classList.toggle('on',i<k))}
-function paintClock(){const free=!cfg.time;$('clockL').textContent=free?'PLAYED':'TIME';$('clockN').textContent=free?fmtUp(played):fmtClock(timeLeft);
-  $('clock').classList.toggle('free',free);$('clock').classList.toggle('low',!free&&timeLeft<10&&state!=='menu')}
+function paintClock(){$('clockN').textContent=fmtClock(timeLeft);$('clock').classList.toggle('low',timeLeft<5&&state!=='menu')}
+function clockDelta(txt,cls){const d=$('clockD');d.textContent=txt;d.className='';void d.offsetWidth;d.className=cls;clearTimeout(clockDelta.h);clockDelta.h=setTimeout(()=>d.className='',900)}
+function addTime(ok){const ck=CLK();if(ok){const bonus=Math.max(.5,ck.plus-.5*Math.floor((right-1)/8));timeLeft=Math.min(ck.start+5,timeLeft+bonus);clockDelta(`+${fmtS(bonus)}`,'good')}
+  else{timeLeft=Math.max(0,timeLeft-ck.minus);clockDelta(`−${fmtS(ck.minus)}`,'bad')}paintClock()}
 function reset(){parts=[];pops=[];ghosts=[];sweepsFx=[];trail=[];score=0;right=0;asked=0;streak=0;bestStreak=0;lines=0;missed=[];beat=false;chain=0;bestChain=0;pieces=0;slowN=0;quickN=0;sweeps=0;sweepPending=false;
-  ending=false;servedLog.length=0;timeLeft=cfg.time;played=0;lastSec=Math.ceil(timeLeft);best=getBest();phase='ask';cur=null;pc=null;bag=[];
+  ending=false;servedLog.length=0;timeLeft=CLK().start;played=0;lastSec=Math.ceil(timeLeft);$('clockD').className='';best=getBest();phase='ask';cur=null;pc=null;bag=[];
   clearGrid();$('qbox').innerHTML='';$('answers').innerHTML='';show('qbox',false);show('answers',false);paintHud();paintClock()}
 function start(){reset();next=stream(curTopic(),DIFF(),EMBED_REG?{regions:EMBED_REG}:undefined);panel(null);show('hud',true);
   state='count';countT=3.2;show('count',true);tickCount(3);paintAudio();spawn();nextQuestion()}
@@ -677,7 +687,7 @@ function lock(kind){if(!pc)return;const sh=pcShape(),row=kind==='slow'?pc.land:p
   phase='between';nextAt=gt+(n||sw?.62:.32)}
 function tooSlow(){if(!cur)return;asked++;slowN++;const was=streak;streak=0;
   cur.card.classList.add('slow');cur.res.textContent=`Too slow · ✓ ${cur.answer}`;cur.btns.forEach(b=>b.disabled=true);cur.btns[cur.correct].classList.add('ok');$('answers').classList.add('locked');fitCard();
-  missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:'(no answer)'});
+  missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:'(no answer)'});addTime(false);
   if(was>=3)pop(GX+BW/2,GY+BH*.4,'Streak lost','#ffb0c0',true);S.slow();paintHud();toParent({type:'edu-progress',game:GAME,score,right,asked});
   say(`Too slow. The answer is ${cur.answer}.`)}
 
@@ -731,16 +741,16 @@ function answer(i){if(state!=='run'||phase!=='ask'||!cur||!pc||pc.mode!=='fall'|
     cur.card.classList.add('right');S.right();if(streak%5===0)sweepPending=true;
     const ch=CHEER[streak];if(ch){banner(ch[0],ch[1],ch[2]);S.sting(streak>=5?2:1)}
     const p=pc;pop(GX+(p.x+pcShape().w/2)*CS,GY+Math.max(1.2,p.y)*CS,quick?'+2 Quick!':'+1',quick?'#9ff3e8':'#fff',quick);
-    startMove(bestPlacement(pc.name),'right');record()}
+    addTime(true);startMove(bestPlacement(pc.name),'right');record()}
   else{const was=streak;streak=0;cur.btns[i].classList.add('no');cur.card.classList.add('wrong');cur.res.textContent=`✓ ${cur.answer}`;fitCard();S.wrong();
     missed.push({q:cur.img?'This flag':cur.q,img:cur.img,code:!!cur.code,answer:cur.answer,picked:cur.ans[i]});
     if(was>=3)pop(GX+BW/2,GY+BH*.4,'Streak lost','#ffb0c0',true);
-    startMove(badPlacement(pc.name),'wrong')}
+    addTime(false);startMove(badPlacement(pc.name),'wrong')}
   paintHud();toParent({type:'edu-progress',game:GAME,score,right,asked});
   say(ok?'Right! The block drops into the best spot.':`Wrong. The answer is ${cur.answer}. The block lands somewhere random.`)}
 
 function pause(){if(state!=='run'&&state!=='count')return;pausedFrom=state;state='paused';show('count',false);
-  $('pLine').textContent=`${score} ${score===1?'point':'points'}, ${lines} ${lines===1?'line':'lines'}${cfg.time?`, ${fmtClock(timeLeft)} left`:''}`;panel('pauseP');paintAudio()}
+  $('pLine').textContent=`${score} ${score===1?'point':'points'}, ${lines} ${lines===1?'line':'lines'}, ${fmtS(Math.round(timeLeft*10)/10)} left`;panel('pauseP');paintAudio()}
 function resume(){if(state!=='paused')return;panel(null);state='count';countT=pausedFrom==='count'?3.2:1.2;show('count',true);tickCount(pausedFrom==='count'?3:1);paintAudio()}
 function finish(cause){
   if(state!=='run'&&state!=='paused'&&state!=='count')return;state='over';show('qbox',false);show('answers',false);show('count',false);
@@ -748,13 +758,13 @@ function finish(cause){
   const sc=score,isBest=sc>best&&sc>0;if(isBest){best=sc;try{localStorage.setItem(bestKey(),best)}catch(e){}}
   logResult({game:GAME,subject:curSubject().id,topic:curTopic().id,topicName:curTopic().name,level:DIFF(),score:sc,right,asked,bestStreak,lines,
     missed:missed.map(m=>({q:m.q,answer:m.answer,picked:m.picked})),at:new Date().toISOString(),
-    timeUsed:Math.round(played),cause,time:cfg.time,pieces,slow:slowN,quick:quickN,bestCombo:bestChain,sweeps});
+    timeUsed:Math.round(played),cause,clock:cfg.clock,pieces,slow:slowN,quick:quickN,bestCombo:bestChain,sweeps});
   setTimeout(()=>{
     $('rCause').textContent=cause==='quit'?'Run ended':cause==='topout'?'Stacked to the top':"Time's up";$('rScore').textContent=sc;$('rScoreL').textContent=sc===1?'point':'points';
     const pct=asked?Math.round(right/asked*100):0;
     $('rMark').textContent=asked?`${pct}% right${quickN?` · ${quickN} quick`:''}${slowN?` · ${slowN} too slow`:''}${bestChain>=2?` · best combo ×${bestChain}`:''}`:'No answers this time';
     const pb=$('rBest');pb.textContent=isBest?'New record!':`Record ${best} points`;pb.classList.toggle('best',isBest);
-    $('rTopic').textContent=`${curSubject().name}, ${curTopic().name}, ${DIFFNAME[DIFF()]}, ${timeName(cfg.time)}, ${fmtUp(played)} played`;
+    $('rTopic').textContent=`${curSubject().name}, ${curTopic().name}, ${DIFFNAME[DIFF()]}, ${CLK().name} clock, ${fmtUp(played)} played`;
     $('rRight').textContent=`${right}/${asked}`;$('rRight').classList.toggle('long',`${right}/${asked}`.length>5);$('rLines').textContent=lines;$('rStreak').textContent=bestStreak;
     const rv=$('review');rv.innerHTML='';
     if(missed.length){rv.append(el('h3',null,'Worth another look'));const ol=el('ol'),seen=new Set();
@@ -860,7 +870,7 @@ if(new URLSearchParams(location.search).has('debug'))window.BF={get state(){retu
 /* ======================= LOOP ======================= */
 let last=performance.now();
 function applyEmbed(){if(!EMBED)return false;const s=SUBJECTS.find(s=>s.topics.some(t=>t.id===EMBED.topic));if(!s)return false;
-  cfg.subject=s.id;cfg.topic=EMBED.topic;if([1,2,3].includes(EMBED.level))cfg.diffs[EMBED.topic]=EMBED.level;if(EMBED.time!=null&&TIMES.includes(EMBED.time))cfg.time=EMBED.time;
+  cfg.subject=s.id;cfg.topic=EMBED.topic;if([1,2,3].includes(EMBED.level))cfg.diffs[EMBED.topic]=EMBED.level;if(CLOCKS[EMBED.clock])cfg.clock=EMBED.clock;
   if(EMBED.lock){$('againBtn').hidden=true;$('menuBtn').hidden=true;const n=el('p','sent','Result sent to your teacher.');$('againBtn').parentNode.prepend(n)}
   return true}
 fit();reset();go('scrHome');paintAudio();
@@ -872,10 +882,11 @@ function frame(now){requestAnimationFrame(frame);const realDt=Math.min((now-last
   if(state==='count'){const prev=Math.ceil(countT-.2);countT-=realDt;const n=Math.ceil(countT-.2);if(n!==prev)tickCount(Math.max(0,n));
     if(countT<=0){state='run';show('count',false);if(pc)pc.born=gt}}
   if(state==='run'){
-    if(!ending){played+=realDt;if(cfg.time)timeLeft-=realDt}
-    const sec=Math.ceil(timeLeft);if(cfg.time&&sec!==lastSec){lastSec=sec;if(sec<=5&&sec>0)S.clock()}paintClock();
+    /* the chess clock only runs while a block is falling with its question open */
+    if(!ending){played+=realDt;if(phase==='ask')timeLeft-=realDt}
+    const sec=Math.ceil(timeLeft);if(sec!==lastSec){lastSec=sec;if(sec<=5&&sec>0&&phase==='ask')S.clock()}paintClock();
     if(ending&&gt>=endAt)finish('topout');
-    else if(cfg.time&&timeLeft<=0&&!ending){timeLeft=0;paintClock();finish('time')}
+    else if(timeLeft<=0&&!ending){timeLeft=0;paintClock();finish('time')}
     else if(phase==='between'&&gt>=nextAt){spawn();nextQuestion()}}
   if(state==='run'||state==='count')updatePiece(dt);
   update(dt);render()}

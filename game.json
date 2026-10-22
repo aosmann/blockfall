@@ -3,13 +3,13 @@
   "id": "blockfall",
   "name": "Blockfall",
   "pitch": "Answer fast. Every right answer drops a block perfectly.",
-  "description": "Falling blocks, driven by your answers: answer right and the block glides into the best spot, answer wrong and it lands somewhere random, too slow and it lands where it falls. Clear rows before the stack reaches the top.",
+  "description": "Falling blocks, driven by your answers: answer right and the block glides into the best spot, answer wrong and it lands somewhere random, too slow and it lands where it falls. A chess clock adds seconds for right answers and takes them for wrong or slow ones; clear rows before the stack reaches the top.",
   "color": "#c43a86",
   "icon": "icon-512.png",
   "bank": "EduQ",
   "score": "points",
   "settings": [
     {"key": "level", "label": "Difficulty", "options": [[1, "Easy"], [2, "Medium"], [3, "Hard"]], "default": "topic"},
-    {"key": "time", "label": "Time", "options": [[0, "No limit"], [120, "2 min"], [300, "5 min"]], "default": 0}
+    {"key": "clock", "label": "Clock", "options": [["quick", "Quick · +1 s / −1 s"], ["normal", "Normal · +2 s / −2 s"], ["relaxed", "Relaxed · +3 s / −2 s"]], "default": "normal"}
   ]
 }
