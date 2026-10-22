@@ -1,0 +1,15 @@
+{
+  "contract": 1,
+  "id": "blockfall",
+  "name": "Blockfall",
+  "pitch": "Answer right. Fit the pieces. Clear the lines.",
+  "description": "An 8×8 block puzzle where every tray of pieces is earned with a question: answer right to choose your tray, wrong gets a random, awkward one. Fill rows and columns to clear them.",
+  "color": "#c43a86",
+  "icon": "icon-512.png",
+  "bank": "EduQ",
+  "score": "points",
+  "settings": [
+    {"key": "level", "label": "Difficulty", "options": [[1, "Easy"], [2, "Medium"], [3, "Hard"]], "default": "topic"},
+    {"key": "time", "label": "Time", "options": [[0, "No limit"], [120, "2 min"], [300, "5 min"]], "default": 0}
+  ]
+}
