@@ -16,8 +16,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@700;800;900&display=swap">
 <style>
-/* Layout: a plum night. Top: pause · score + sweep meter · clock. Under it the question card, then the 10×16 board where a block
-   falls while you answer, then the three answer buttons within thumb reach. Wide screens put the board on the left, card + answers on the right.
+/* Layout: a plum night. Top: pause · score + sweep meter · clock. Under it the 8×12 board where a block falls while you answer,
+   then the question card right above the three answer buttons, within thumb reach. Wide screens put the board on the left, card + answers on the right.
    One look on purpose (plum night, jewel blocks). */
 :root{
   --ink:#24123d; --ink2:#6c5a8c; --paper:#fbf8ff; --paper2:#efe7fb; --rule:#d9ccef;
@@ -101,7 +101,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .qtext.code{font:700 15px/1.3 var(--mono);text-align:left;white-space:pre-wrap;background:#1d0f33;color:#efe6ff;border-radius:10px;padding:6px 11px 7px;text-wrap:wrap}
 .answers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;width:100%}
 .ans{pointer-events:auto;cursor:pointer;position:relative;min-height:48px;border-radius:16px;background:var(--paper);box-shadow:0 4px 0 var(--rule);color:var(--ink);
-  font:900 17px/1.12 var(--body);padding:6px 6px 5px 6px;display:grid;place-items:center;text-align:center;overflow-wrap:anywhere;hyphens:auto}
+  font:900 16px/1.1 var(--body);padding:6px 6px 5px 6px;display:grid;place-items:center;text-align:center;overflow-wrap:anywhere;hyphens:auto}
 .ans.long{font-size:14px}
 .ans.xlong{font-size:12px;line-height:1.1}
 .ans:disabled{opacity:1;color:var(--ink)}
@@ -523,7 +523,7 @@ function paintAudio(){
 
 /* ======================= PIECES =======================
    The seven classic four-block pieces, each with its own jewel colour, dealt from a shuffled bag of seven. */
-const COLS=10,ROWS=16;
+const COLS=8,ROWS=12;
 const P=(s)=>{const rows=s.split('/');const c=[];rows.forEach((r,y)=>[...r].forEach((ch,x)=>{if(ch==='#')c.push([y,x])}));return c};
 const norm=cells=>{const mr=Math.min(...cells.map(c=>c[0])),mc=Math.min(...cells.map(c=>c[1]));const out=cells.map(([r,c])=>[r-mr,c-mc]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
   return{cells:out,w:Math.max(...out.map(c=>c[1]))+1,h:Math.max(...out.map(c=>c[0]))+1,key:out.join(';')}};
@@ -544,6 +544,7 @@ function fits(sh,row,col,G){G=G||grid;for(const [y,x] of sh.cells){const r=row+y
 /* the row a piece comes to rest on when dropped straight down from above the board */
 function landRow(sh,col,from){let r=from==null?-sh.h:from;if(!fits(sh,r,col))return null;while(fits(sh,r+1,col))r++;return r}
 /* every place a piece can drop to, scored like a careful player would: lines cleared good; height, holes and bumps bad */
+function holesNow(){let h=0;for(let c=0;c<COLS;c++){let seen=false;for(let r=0;r<ROWS;r++){if(grid[r][c]>=0)seen=true;else if(seen)h++}}return h}
 function placements(name){const out=[];
   PIECES[name].forEach((sh,rot)=>{for(let col=0;col<=COLS-sh.w;col++){const row=landRow(sh,col);if(row==null)continue;
     const G=grid.map(r=>r.slice());let top=false;for(const [y,x] of sh.cells){if(row+y<0)top=true;else G[row+y][col+x]=1}
@@ -551,13 +552,17 @@ function placements(name){const out=[];
     const hs=[];let holes=0;for(let c=0;c<COLS;c++){let h=0,seen=false;for(let r=0;r<ROWS;r++){if(G[r][c]>=0){if(!seen){h=ROWS-r;seen=true}}else if(seen)holes++}hs.push(h)}
     let bump=0;for(let c=0;c<COLS-1;c++)bump+=Math.abs(hs[c]-hs[c+1]);const agg=hs.reduce((a,b)=>a+b,0);
     const score=(top?-1000:0)+.76*lines-.51*agg-.36*holes-.18*bump-.02*Math.max(...hs);
-    out.push({rot,col,row,score,lines,top})}});
+    out.push({rot,col,row,score,lines,top,holes})}});
   return out.sort((a,b)=>b.score-a.score)}
 const bestPlacement=name=>placements(name)[0];
-/* a wrong answer drops the piece somewhere random (Hard: in the worse 60% of spots). Never the top if it can be helped. */
-const BADSHARE={1:1,2:1,3:.6};
-function badPlacement(name){const all=placements(name);let pool=all.filter(p=>!p.top);if(!pool.length)pool=all;
-  const k=Math.max(1,Math.round(pool.length*(BADSHARE[DIFF()]||.55)));const tail=pool.slice(pool.length-k);return tail[ri(0,tail.length-1)]}
+/* a wrong answer drops the piece in a random spot that is clearly not the best one. A mistake should cost, not end the run:
+   Easy never opens a new hole, Medium at most one, Hard can land anywhere in the worst 40%. Never the top if it can be helped. */
+const BADRANGE={1:[.3,1,0],2:[.45,1,1],3:[.6,1,99]};
+function badPlacement(name){const all=placements(name),h0=holesNow(),[lo,hi,maxNew]=BADRANGE[DIFF()]||BADRANGE[2];
+  let pool=all.filter(p=>!p.top);if(!pool.length)pool=all;if(pool.length>1)pool=pool.slice(1);
+  const lim=Math.max(maxNew,Math.min(...pool.map(p=>p.holes-h0)));pool=pool.filter(p=>p.holes-h0<=lim);
+  if(pool.length<3)return pool[ri(0,pool.length-1)];
+  const n=pool.length,i0=Math.min(n-1,Math.floor(n*lo)),i1=Math.max(i0+1,Math.ceil(n*hi));return pool[ri(i0,i1-1)]}
 const stackTop=()=>{for(let r=0;r<ROWS;r++)if(grid[r].some(v=>v>=0))return r;return ROWS};
 
 /* ======================= LAYOUT ======================= */
@@ -573,12 +578,13 @@ function layout(){
     CS=Math.min((h-FR*2)/ROWS,(W*.5)/COLS,52);BW=CS*COLS;BH=CS*ROWS;
     const colW=Math.min(440,W-BW-FR*2-side*2-28),tot=BW+FR*2+28+colW,x0=Math.max(side,(W-tot)/2);
     GX=x0+FR;GY=top+(h-BH-FR*2)/2+FR;QX=x0+BW+FR*2+28;QW=colW;AX=QX;AW=colW;
-    QH=clamp(h*.36,150,230);AH=clamp(h*.13,70,96);const blk=QH+14+AH;QY=top+Math.max(0,(h-blk)/2-20);AY=QY+QH+14;
+    QH=clamp(h*.3,140,210);AH=clamp(h*.1,58,72);const blk=QH+10+AH;QY=Math.max(top,GY+BH+FR-blk);AY=QY+QH+10;
   }else{
-    AH=h>=640?66:58;QH=h>=700?118:h>=580?106:94;
-    const avail=h-QH-AH-12-12-FR*2;CS=Math.min(avail/ROWS,(W-side*2-FR*2)/COLS,46);BW=CS*COLS;BH=CS*ROWS;
-    const colW=Math.min(W-side*2,520),tot=QH+12+BH+FR*2+12+AH,y0=top+Math.max(0,(h-tot)/2);
-    QX=(W-colW)/2;QW=colW;QY=y0;GX=(W-BW)/2;GY=QY+QH+12+FR;AX=QX;AW=colW;AY=GY+BH+FR+12;
+    /* portrait: board on top, then the question card right above the answers (thumb zone) */
+    AH=h>=640?54:48;QH=h>=700?104:h>=580?94:84;
+    const avail=h-QH-AH-10-8-FR*2;CS=Math.min(avail/ROWS,(W-side*2-FR*2)/COLS,60);BW=CS*COLS;BH=CS*ROWS;
+    const colW=Math.min(W-side*2,520),tot=BH+FR*2+10+QH+8+AH,y0=top+Math.max(0,h-tot);
+    GX=(W-BW)/2;GY=y0+FR;QX=(W-colW)/2;QW=colW;QY=GY+BH+FR+10;AX=QX;AW=colW;AY=QY+QH+8;
   }
   const r=document.documentElement.style;
   [['--qx',QX],['--qw',QW],['--qtop',QY],['--qh',QH],['--ax',AX],['--aw',AW],['--atop',AY],['--ah',AH],['--btop',GY+BH*.3]].forEach(([k,v])=>r.setProperty(k,v+'px'));
@@ -712,7 +718,7 @@ function nextQuestion(){if(ending)return;
   const ab=$('answers');ab.innerHTML='';ab.classList.remove('locked');
   cur.btns=c.ans.map((a,i)=>{const b=el('button','ans push');b.type='button';if(c.code)b.classList.add('code');
     const L=String(a).length;if(L>22)b.classList.add('xlong');else if(L>12)b.classList.add('long');
-    b.append(el('kbd',null,String(i+1)),document.createTextNode(a));b.onclick=()=>answer(i);ab.append(b);return b});
+    b.append(document.createTextNode(a));b.onclick=()=>answer(i);ab.append(b);return b});
   show('qbox',true);show('answers',true);card.classList.remove('in');void card.offsetWidth;card.classList.add('in');fitCard();
   say(`${c.img?'Which country is this flag?':c.q} 1: ${c.ans[0]}. 2: ${c.ans[1]}. 3: ${c.ans[2]}.`)}
 function fitCard(){const card=cur&&cur.card;if(!card)return;card.classList.remove('tight','tighter');
@@ -780,10 +786,10 @@ function drawPiece(c,p,x,y,cell,alpha,ci){for(const [r,cc] of p.cells)block(c,ci
 function outline(c,sh,col,row,color){c.save();c.strokeStyle=color;c.lineWidth=Math.max(1.5,CS*.06);c.setLineDash([CS*.18,CS*.14]);
   for(const [y,x] of sh.cells){const r=row+y;if(r<0)continue;rrect(c,GX+(col+x)*CS+CS*.1,GY+r*CS+CS*.1,CS*.8,CS*.8,CS*.08);c.stroke()}c.restore()}
 function drawBoard(c){
-  const st=stackTop(),danger=state==='run'&&st<5?(5-st)/5:0;
+  const st=stackTop(),danger=state==='run'&&st<4?(4-st)/4:0;
   c.save();rrect(c,GX-FR,GY-FR,BW+FR*2,BH+FR*2,Math.max(10,CS*.3));c.fillStyle='#130a1c';c.fill();
   c.strokeStyle=danger?`rgba(255,90,120,${.25+.35*danger*(.6+.4*Math.sin(gt*7))})`:'rgba(255,255,255,.06)';c.lineWidth=2;c.stroke();c.restore();
-  if(danger){const g=c.createLinearGradient(0,GY,0,GY+CS*4);g.addColorStop(0,`rgba(255,60,100,${.22*danger})`);g.addColorStop(1,'rgba(255,60,100,0)');c.fillStyle=g;c.fillRect(GX,GY,BW,CS*4)}
+  if(danger){const g=c.createLinearGradient(0,GY,0,GY+CS*4);g.addColorStop(0,`rgba(255,60,100,${.22*danger})`);g.addColorStop(1,'rgba(255,60,100,0)');c.fillStyle=g;c.fillRect(GX,GY,BW,CS*3)}
   /* cell slots */
   for(let r=0;r<ROWS;r++)for(let cc=0;cc<COLS;cc++){rrect(c,GX+cc*CS+CS*.05,GY+r*CS+CS*.05,CS*.9,CS*.9,CS*.1);c.fillStyle='#1e1229';c.fill()}
   /* settled blocks (rows above a clear slide down) */
@@ -847,7 +853,7 @@ function update(dt){
 if(new URLSearchParams(location.search).has('debug'))window.BF={get state(){return state},get phase(){return phase},
   grid:()=>grid.map(r=>r.slice()),piece:()=>pc&&{name:pc.name,rot:pc.rot,col:pc.col,x:pc.x,y:pc.y,land:pc.land,mode:pc.mode,kind:pc.kind,to:pc.to},
   info:()=>({score,right,asked,streak,bestStreak,lines,chain,bestChain,pieces,slow:slowN,quick:quickN,sweeps,timeLeft,played,fall:fallTime(),W,H,CS,GX,GY,BW,BH,QY,QH,AY,AH,WIDE,top:stackTop()}),
-  cur:()=>cur&&{q:cur.q,answer:cur.answer,ans:cur.ans,correct:cur.correct,img:cur.img,code:cur.code},served:()=>servedLog.slice(),answer,placements,
+  cur:()=>cur&&{q:cur.q,answer:cur.answer,ans:cur.ans,correct:cur.correct,img:cur.img,code:cur.code},served:()=>servedLog.slice(),answer,placements,badPlacement,holesNow,
   fill:(cells,ci)=>{cells.forEach(([r,c])=>grid[r][c]=ci==null?0:ci);if(pc&&pc.mode==='fall')pc.land=landRow(pcShape(),pc.col)},clear:()=>clearGrid(),setTime:t=>{timeLeft=t}};
 
 /* ======================= LOOP ======================= */

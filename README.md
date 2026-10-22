@@ -1,6 +1,6 @@
 # Blockfall
 
-Educational falling-blocks game for the EduGames portal. The questions drive the game: a block falls from the top of a 10×16 board while a question shows above it, and your answer decides where the block lands. You never move the blocks yourself.
+Educational falling-blocks game for the EduGames portal. The questions drive the game: a block falls from the top of an 8×12 board while the question shows just above the answers, and your answer decides where the block lands. You never move the blocks yourself.
 
 - Right answer: +1 point and the block glides into the best spot on the board and snaps in. Answer within the first part of its fall for +1 more (Quick)
 - Wrong answer: the block lands somewhere random (on Hard it leans towards the worse spots) and the right answer shows
@@ -15,7 +15,7 @@ Educational falling-blocks game for the EduGames portal. The questions drive the
 - Tap or click one of the three answer buttons under the board
 - Keyboard: 1 / 2 / 3 answers. Esc or P pauses
 
-Plain canvas 2D, no build step, works offline after the first visit, installs to the home screen. Portrait first (question card, board and answers fit a 390×844 phone without scrolling); iPad and laptop too, with the board beside the card on wide screens. Fills the visible screen with 100dvh.
+Plain canvas 2D, no build step, works offline after the first visit, installs to the home screen. Portrait first (board, question card and answers fit a 390×844 phone without scrolling); iPad and laptop too, with the board beside the card on wide screens. Fills the visible screen with 100dvh.
 
 ## Files
 - `index.html`: the game (board, falling pieces, placement, scoring, menus, audio, PORTAL EMBED block)
