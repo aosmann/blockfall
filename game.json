@@ -9,7 +9,77 @@
   "bank": "EduQ",
   "score": "points",
   "settings": [
-    {"key": "level", "label": "Difficulty", "options": [[1, "Easy"], [2, "Medium"], [3, "Hard"]], "default": "topic"},
-    {"key": "clock", "label": "Clock", "options": [["quick", "Quick · +1 s / −1 s"], ["normal", "Normal · +2 s / −2 s"], ["relaxed", "Relaxed · +3 s / −2 s"]], "default": "normal"}
+    {
+      "key": "level",
+      "label": "Difficulty",
+      "options": [
+        [
+          1,
+          "Easy"
+        ],
+        [
+          2,
+          "Medium"
+        ],
+        [
+          3,
+          "Hard"
+        ]
+      ],
+      "default": "topic"
+    },
+    {
+      "key": "clock",
+      "label": "Clock",
+      "options": [
+        [
+          "quick",
+          "Quick · +1 s / −1 s"
+        ],
+        [
+          "normal",
+          "Normal · +2 s / −2 s"
+        ],
+        [
+          "relaxed",
+          "Relaxed · 30 s, +1 / −1 s"
+        ]
+      ],
+      "default": "normal",
+      "custom": {
+        "label": "Custom",
+        "fields": [
+          {
+            "key": "start",
+            "label": "Start",
+            "unit": "s",
+            "min": 5,
+            "max": 300,
+            "step": 5,
+            "default": 30
+          },
+          {
+            "key": "plus",
+            "label": "Right answer",
+            "prefix": "+",
+            "unit": "s",
+            "min": 0,
+            "max": 10,
+            "step": 1,
+            "default": 2
+          },
+          {
+            "key": "minus",
+            "label": "Wrong answer",
+            "prefix": "−",
+            "unit": "s",
+            "min": 0,
+            "max": 10,
+            "step": 1,
+            "default": 1
+          }
+        ]
+      }
+    }
   ]
 }
